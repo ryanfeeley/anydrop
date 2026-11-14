@@ -13,7 +13,13 @@
     input: document.getElementById("file-input"),
     canvas: document.getElementById("scan-canvas"),
     toast: document.getElementById("toast"),
-    sound: document.getElementById("sound-toggle")
+    sound: document.getElementById("sound-toggle"),
+    incomingDialog: document.getElementById("incoming-dialog"),
+    incomingFiles: document.getElementById("incoming-file-list"),
+    incomingSummary: document.getElementById("incoming-summary"),
+    incomingDescription: document.getElementById("incoming-description"),
+    incomingAccept: document.getElementById("incoming-accept"),
+    incomingDecline: document.getElementById("incoming-decline")
   };
   const state = {
     phase: "loading", peer: null, peerId: null, conn: null, remoteId: null,
@@ -55,29 +61,67 @@
     clearTimeout(flash.timer);
     flash.timer = setTimeout(() => els.toast.classList.remove("visible"), 3800);
   }
-  function tone(kind) {
-    if (state.muted) return;
+  // Prime Web Audio during a trusted gesture, before an incoming request arrives.
+  // Some browsers otherwise suppress audio played by a background event.
+  let audioContext = null;
+  function primeAudio() {
+    if (state.muted) return Promise.resolve(false);
     try {
       const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return;
-      const ctx = new AC(), now = ctx.currentTime;
+      if (!AC) return Promise.resolve(false);
+      if (!audioContext) audioContext = new AC();
+      const ready = audioContext.state === "suspended" ? audioContext.resume() : Promise.resolve();
+      return Promise.resolve(ready).then(() => audioContext.state === "running").catch(() => false);
+    } catch (_) { return Promise.resolve(false); }
+  }
+  function audioNeedsEnabling() {
+    return !state.muted && Boolean(window.AudioContext || window.webkitAudioContext) &&
+      (!audioContext || audioContext.state !== "running");
+  }
+  function tone(kind) {
+    if (state.muted) return;
+    void primeAudio().then(ready => {
+      if (!ready) return;
+      if (kind === "request" && state.phase !== "incoming") return;
+      const now = audioContext.currentTime;
       const seq = {
         connected: [[523, 0, .09], [784, .11, .16]],
-        request: [[659, 0, .11], [880, .14, .12]],
+        request: [[659, 0, .14], [880, .18, .19], [988, .42, .20]],
         success: [[523, 0, .09], [659, .12, .09], [784, .24, .17]],
         error: [[360, 0, .13], [280, .17, .18]]
       }[kind] || [];
       seq.forEach(([frequency, start, length]) => {
-        const osc = ctx.createOscillator(), gain = ctx.createGain();
+        const osc = audioContext.createOscillator(), gain = audioContext.createGain();
         osc.type = "sine"; osc.frequency.value = frequency;
         gain.gain.setValueAtTime(.0001, now + start);
-        gain.gain.exponentialRampToValueAtTime(.045, now + start + .015);
+        gain.gain.exponentialRampToValueAtTime(.065, now + start + .015);
         gain.gain.exponentialRampToValueAtTime(.0001, now + start + length);
-        osc.connect(gain); gain.connect(ctx.destination);
+        osc.connect(gain); gain.connect(audioContext.destination);
         osc.start(now + start); osc.stop(now + start + length + .01);
       });
-      setTimeout(() => ctx.close(), 900);
-    } catch (_) {}
+    });
+  }
+  function incomingAlert() {
+    tone("request");
+    if ("vibrate" in navigator && typeof navigator.vibrate === "function") {
+      try { navigator.vibrate([170, 90, 170]); } catch (_) {}
+    }
+  }
+  function renderIncomingDialog() {
+    const dialog = els.incomingDialog;
+    if (state.phase === "incoming" && state.incoming) {
+      els.incomingFiles.innerHTML = fileList(state.incoming.files);
+      const count = state.incoming.files.length;
+      els.incomingSummary.textContent = count + " file" + (count === 1 ? "" : "s") + " · " + formatBytes(state.incoming.total);
+      els.incomingDescription.textContent = "A connected device wants to send you " + (count === 1 ? "a file." : "files.");
+      if (!dialog.open) {
+        dialog.showModal();
+        els.incomingDecline.focus();
+      }
+    } else if (dialog.open) {
+      dialog.close();
+    }
+    document.title = state.phase === "incoming" ? "Incoming files · Anydrop" : "Anydrop — Share files between devices";
   }
   function setPhase(phase, error = "") { if (state.phase === "scan" && phase !== "scan") stopCamera(); state.phase = phase; state.error = error; render(); }
   function connected() { return Boolean(state.conn && state.conn.open); }
@@ -115,7 +159,7 @@
       case "home":
         html = title("Share files between devices", "Anyone can send or receive. No account, no app.") +
           '<div class="qr-card"><div id="qr" aria-label="QR code containing your pairing link"></div></div>' +
-          actions(action("Share link", "share", "primary", "share"), action("Scan QR code", "scan", "secondary", "camera")) +
+          actions(action(typeof navigator.share === "function" ? "Share link" : "Copy link", "share", "primary", "share"), action("Scan QR code", "scan", "secondary", "camera")) +
           '<p class="helper">Have another device scan your code, or share a link.</p>';
         break;
       case "scan":
@@ -132,6 +176,7 @@
         html = symbol("check", "success") + '<span class="connected-pill">Connected</span>' +
           title("Ready to share", "Choose files to send. You can receive files at any time.") +
           actions(action("Choose files", "choose", "primary", "upload")) +
+          (audioNeedsEnabling() ? '<button class="text-button" data-action="enable-alerts" type="button">Enable sound alerts</button>' : "") +
           '<p class="helper">Or drag files anywhere onto this page.</p>';
         break;
       case "selected":
@@ -144,9 +189,9 @@
           actions(action("Cancel request", "cancel", "secondary", "close"));
         break;
       case "incoming":
-        html = symbol("download") + title("Incoming files", "The other device would like to send you these files.") +
-          fileList(state.incoming.files) + '<span class="summary">' + formatBytes(state.incoming.total) + " total</span>" +
-          actions(action("Accept files", "accept", "primary", "download"), action("Decline", "decline", "secondary", "close"));
+        html = symbol("check", "success") + '<span class="connected-pill">Connected</span>' +
+          title("Ready to share", "A transfer request needs your attention.") +
+          actions(action("Choose files", "choose", "primary", "upload"));
         break;
       case "sending":
         html = symbol("upload") + title("Sending files…", "Keep this page open while the transfer completes.") +
@@ -183,6 +228,7 @@
         break;
     }
     els.app.innerHTML = html;
+    renderIncomingDialog();
     if (state.phase === "home") {
       if (typeof QRCode === "function" && state.peerId) {
         new QRCode(document.getElementById("qr"), { text: inviteUrl(), width: 154, height: 154, colorDark: "#18243a", colorLight: "#fff", correctLevel: QRCode.CorrectLevel.M });
@@ -271,7 +317,7 @@
         clearTransfer();
         state.incoming = { oid: d.oid, files: d.files, total: d.files.reduce((sum, f) => sum + f.size, 0) };
         state.total = state.incoming.total;
-        setPhase("incoming"); tone("request"); break;
+        setPhase("incoming"); incomingAlert(); break;
       }
       case "accept":
         if (state.phase === "awaiting" && state.offer?.oid === d.oid) { setPhase("sending"); transferFiles(d.oid); }
@@ -402,6 +448,13 @@
     try { send({ t: "offer", oid, files }); setPhase("awaiting"); }
     catch (_) { setPhase("error", "The other device is no longer connected."); }
   }
+  function declineOffer() {
+    if (state.phase !== "incoming" || !state.incoming) return;
+    try { send({ t: "decline", oid: state.incoming.oid }); } catch (_) {}
+    clearTransfer();
+    setPhase("connected");
+    flash("Transfer declined.");
+  }
   function acceptOffer() {
     if (state.phase !== "incoming") return;
     state.recvParts = state.incoming.files.map(() => []);
@@ -488,25 +541,29 @@
     state.conn = null; state.remoteId = null; clearTransfer();
     setPhase("home");
   }
+  els.incomingAccept.addEventListener("click", acceptOffer);
+  els.incomingDecline.addEventListener("click", declineOffer);
+  // Escape is a rejection, not a silent close that strands the sender.
+  els.incomingDialog.addEventListener("cancel", event => {
+    event.preventDefault();
+    declineOffer();
+  });
+  // Use available user activation to allow incoming alerts to sound.
+  document.addEventListener("pointerdown", () => { void primeAudio(); }, { capture: true, passive: true });
+  document.addEventListener("keydown", () => { void primeAudio(); }, { capture: true });
   els.app.addEventListener("click", async event => {
     const button = event.target.closest("button[data-action]");
     if (!button) return;
     switch (button.dataset.action) {
       case "share": await shareLink(); break;
+      case "enable-alerts": await primeAudio(); render(); flash(audioNeedsEnabling() ? "Your browser is blocking audio alerts." : "Sound alerts are enabled."); break;
       case "scan": setPhase("scan"); startCamera(); break;
       case "home": restartHome(); break;
       case "cancel-connect": if (state.conn) state.conn.close(); restartHome(); break;
       case "choose": els.input.click(); break;
       case "offer": startOffer(); break;
       case "accept": acceptOffer(); break;
-      case "decline":
-        if (state.incoming) {
-          try { send({ t: "decline", oid: state.incoming.oid }); } catch (_) {}
-        }
-        clearTransfer();
-        setPhase("connected");
-        flash("Transfer declined.");
-        break;
+      case "decline": declineOffer(); break;
       case "cancel": cancelTransfer(); break;
       case "save": await saveFiles(); break;
       case "retry": restartHome(); break;
@@ -533,6 +590,7 @@
   els.sound.addEventListener("click", () => {
     state.muted = !state.muted;
     localStorage.setItem("anydrop-muted", state.muted ? "1" : "0");
+    if (!state.muted) void primeAudio();
     render();
   });
   window.addEventListener("beforeunload", () => stopCamera());
