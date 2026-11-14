@@ -499,7 +499,14 @@
       case "choose": els.input.click(); break;
       case "offer": startOffer(); break;
       case "accept": acceptOffer(); break;
-      case "decline": cancelTransfer(); break;
+      case "decline":
+        if (state.incoming) {
+          try { send({ t: "decline", oid: state.incoming.oid }); } catch (_) {}
+        }
+        clearTransfer();
+        setPhase("connected");
+        flash("Transfer declined.");
+        break;
       case "cancel": cancelTransfer(); break;
       case "save": await saveFiles(); break;
       case "retry": restartHome(); break;
