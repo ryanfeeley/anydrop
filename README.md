@@ -7,9 +7,11 @@ A lightweight, cross-platform file-sharing website inspired by AirDrop. No accou
 ## Features
 
 - **Role-neutral:** either connected device can send or receive without switching roles.
-- **Share link** is the primary homepage action. Uses the OS share sheet when supported; falls back to copy-to-clipboard.
+- **Share link** is the primary homepage action when the OS share sheet is available. Otherwise, **Copy link** is shown (including Firefox on macOS).
 - **QR pairing:** show a QR code, scan with the phone camera, or paste the pairing link.
 - **Real browser-to-browser file transfer** using a WebRTC data channel (PeerJS); files are not uploaded to GitHub or the signaling service.
+- **Incoming-file modal** shows the file details with explicit Accept/Decline controls and keeps the sender waiting for consent. Escape declines.
+- **Arrival alert** plays a three-note chime and requests vibration on compatible devices. Browsers can block unsolicited audio, so the connected screen offers an Enable sound alerts control when needed.
 - **Explicit acceptance** before transferring file contents.
 - Multiple files, drag-and-drop, live progress, cancellation, and bidirectional sessions.
 - Single files download directly. Multiple files download as a ZIP.
