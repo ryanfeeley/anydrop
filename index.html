@@ -42,6 +42,26 @@
       </div>
     </section>
 
+    <dialog id="incoming-dialog" class="incoming-dialog" aria-modal="true" aria-labelledby="incoming-title" aria-describedby="incoming-description">
+      <div class="incoming-dialog-content">
+        <div class="symbol incoming-symbol" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3v13m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
+          </svg>
+        </div>
+        <span class="eyebrow">Transfer request</span>
+        <h2 id="incoming-title">Incoming files</h2>
+        <p id="incoming-description">Another device wants to share files with you.</p>
+        <div id="incoming-file-list"></div>
+        <p id="incoming-summary" class="summary"></p>
+        <div class="actions incoming-actions">
+          <button id="incoming-accept" class="button primary" type="button">Accept files</button>
+          <button id="incoming-decline" class="button secondary" type="button" autofocus>Decline</button>
+        </div>
+        <p class="dialog-help">Only accept files you're expecting.</p>
+      </div>
+    </dialog>
+
     <footer class="site-footer">
       <p>Files travel over an encrypted browser-to-browser connection. A signaling service helps devices find each other; restrictive networks may prevent a connection.</p>
       <a href="https://github.com/ryanfeeley/anydrop" target="_blank" rel="noopener noreferrer">Open source on GitHub</a>
