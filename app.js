@@ -36,7 +36,8 @@
     download: '<path d="M12 3v13m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>',
     check: '<path d="m5 12 4 4L19 6"/>',
     close: '<path d="M18 6 6 18M6 6l12 12"/>',
-    link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>'
+    link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
+    copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>'
   };
   function icon(name) { return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (svg[name] || svg.check) + "</svg>"; }
   function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]); }
@@ -159,7 +160,7 @@
       case "home":
         html = title("Share files between devices", "Anyone can send or receive. No account, no app.") +
           '<div class="qr-card"><div id="qr" aria-label="QR code containing your pairing link"></div></div>' +
-          actions(action(typeof navigator.share === "function" ? "Share link" : "Copy link", "share", "primary", "share"), action("Scan QR code", "scan", "secondary", "camera")) +
+          actions(action(typeof navigator.share === "function" ? "Share link" : "Copy link", "share", "primary", typeof navigator.share === "function" ? "share" : "copy"), action("Scan QR code", "scan", "secondary", "camera")) +
           '<p class="helper">Have another device scan your code, or share a link.</p>';
         break;
       case "scan":
