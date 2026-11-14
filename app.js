@@ -19,7 +19,12 @@
     incomingSummary: document.getElementById("incoming-summary"),
     incomingDescription: document.getElementById("incoming-description"),
     incomingAccept: document.getElementById("incoming-accept"),
-    incomingDecline: document.getElementById("incoming-decline")
+    incomingDecline: document.getElementById("incoming-decline"),
+    receivedDialog: document.getElementById("received-dialog"),
+    receivedFiles: document.getElementById("received-file-list"),
+    receivedSummary: document.getElementById("received-summary"),
+    receivedSave: document.getElementById("received-save"),
+    receivedDiscard: document.getElementById("received-discard")
   };
   const state = {
     phase: "loading", peer: null, peerId: null, conn: null, remoteId: null,
@@ -122,7 +127,22 @@
     } else if (dialog.open) {
       dialog.close();
     }
-    document.title = state.phase === "incoming" ? "Incoming files · Anydrop" : "Anydrop — Share files between devices";
+    document.title = state.phase === "incoming" ? "Incoming files · Anydrop" : state.phase === "received" ? "Files received · Anydrop" : "Anydrop — Share files between devices";
+  }
+  function renderReceivedDialog() {
+    const dialog = els.receivedDialog;
+    if (state.phase === "received" && state.incoming && state.received.length) {
+      els.receivedFiles.innerHTML = fileList(state.incoming.files);
+      const count = state.received.length;
+      els.receivedSummary.textContent = count + " file" + (count === 1 ? "" : "s") + " · " + formatBytes(state.total);
+      els.receivedSave.textContent = count === 1 ? "Save file" : "Download ZIP";
+      if (!dialog.open) {
+        dialog.showModal();
+        els.receivedSave.focus();
+      }
+    } else if (dialog.open) {
+      dialog.close();
+    }
   }
   function setPhase(phase, error = "") { if (state.phase === "scan" && phase !== "scan") stopCamera(); state.phase = phase; state.error = error; render(); }
   function connected() { return Boolean(state.conn && state.conn.open); }
@@ -203,13 +223,12 @@
           progress() + actions(action("Cancel transfer", "cancel", "secondary", "close"));
         break;
       case "delivered":
-        html = symbol("check", "success") + title("Files received", "The other device has the complete files. Waiting for its download to start.") +
-          fileList(state.selected) + actions(action("Send more files", "choose", "primary", "upload"));
+        html = symbol("check", "success") + title("Files received", "The other device has the complete files. Waiting for them to save or discard.") +
+          fileList(state.selected);
         break;
       case "received":
-        html = symbol("check", "success") + title("Files received", "All files are here. Save them to your device.") +
-          fileList(state.incoming.files) +
-          actions(action(state.received.length > 1 ? "Download ZIP" : "Save file", "save", "primary", "download"));
+        html = symbol("check", "success") + '<span class="connected-pill">Connected</span>' +
+          title("Ready to share", "Your files have arrived. Save or discard them to continue.");
         break;
       case "saving":
         html = '<div class="spinner" aria-hidden="true"></div>' + title("Preparing download…", "Your browser will handle the save destination.");
@@ -230,6 +249,7 @@
     }
     els.app.innerHTML = html;
     renderIncomingDialog();
+    renderReceivedDialog();
     if (state.phase === "home") {
       if (typeof QRCode === "function" && state.peerId) {
         new QRCode(document.getElementById("qr"), { text: inviteUrl(), width: 154, height: 154, colorDark: "#18243a", colorLight: "#fff", correctLevel: QRCode.CorrectLevel.M });
@@ -353,7 +373,14 @@
         if (state.phase === "sending" && state.offer?.oid === d.oid) { state.sentBytes = state.total; setPhase("delivered"); tone("success"); }
         break;
       case "saved":
-        if (state.offer?.oid === d.oid && state.phase === "delivered") { setPhase("connected"); flash("The receiving device started its download."); }
+        if (state.offer?.oid === d.oid && state.phase === "delivered") {
+          clearTransfer(); setPhase("connected"); flash("The receiving device started its download.");
+        }
+        break;
+      case "discarded":
+        if (state.offer?.oid === d.oid && state.phase === "delivered") {
+          clearTransfer(); setPhase("connected"); flash("The receiving device discarded the files.");
+        }
         break;
       case "fail":
         if (state.offer?.oid === d.oid || state.incoming?.oid === d.oid) { state.aborted = true; clearTransfer(); setPhase("connected"); flash("Transfer failed. Please try again."); tone("error"); }
@@ -472,6 +499,15 @@
     a.href = objectUrl; a.download = filename; document.body.append(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
   }
+  function discardReceived() {
+    if (state.phase !== "received" || !state.incoming) return;
+    const oid = state.incoming.oid;
+    try { if (connected()) send({ t: "discarded", oid }); } catch (_) {}
+    // Release received Blobs and return to the shared idle session.
+    clearTransfer();
+    setPhase("connected");
+    flash("Files discarded. You can send your own files now.");
+  }
   async function saveFiles() {
     if (state.phase !== "received" || !state.received.length) return;
     const saved = state.received;
@@ -544,6 +580,12 @@
   }
   els.incomingAccept.addEventListener("click", acceptOffer);
   els.incomingDecline.addEventListener("click", declineOffer);
+  els.receivedSave.addEventListener("click", saveFiles);
+  els.receivedDiscard.addEventListener("click", discardReceived);
+  els.receivedDialog.addEventListener("cancel", event => {
+    event.preventDefault();
+    discardReceived();
+  });
   // Escape is a rejection, not a silent close that strands the sender.
   els.incomingDialog.addEventListener("cancel", event => {
     event.preventDefault();
