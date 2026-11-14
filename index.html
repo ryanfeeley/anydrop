@@ -62,6 +62,24 @@
       </div>
     </dialog>
 
+    <dialog id="received-dialog" class="incoming-dialog" aria-modal="true" aria-labelledby="received-title" aria-describedby="received-description">
+      <div class="incoming-dialog-content">
+        <div class="symbol success" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>
+        </div>
+        <span class="eyebrow">Transfer complete</span>
+        <h2 id="received-title">Files received</h2>
+        <p id="received-description">All files arrived. Choose whether to keep them.</p>
+        <div id="received-file-list"></div>
+        <p id="received-summary" class="summary"></p>
+        <div class="actions incoming-actions">
+          <button id="received-save" class="button primary" type="button">Save files</button>
+          <button id="received-discard" class="button secondary" type="button">Discard files</button>
+        </div>
+        <p class="dialog-help">Discarding clears these files so you can send your own.</p>
+      </div>
+    </dialog>
+
     <footer class="site-footer">
       <p>Files travel over an encrypted browser-to-browser connection. A signaling service helps devices find each other; restrictive networks may prevent a connection.</p>
       <a href="https://github.com/ryanfeeley/anydrop" target="_blank" rel="noopener noreferrer">Open source on GitHub</a>
