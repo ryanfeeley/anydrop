@@ -11,6 +11,7 @@ A lightweight, cross-platform file-sharing website inspired by AirDrop. No accou
 - **QR pairing:** show a QR code, scan with the phone camera, or paste the pairing link.
 - **Real browser-to-browser file transfer** using a WebRTC data channel (PeerJS); files are not uploaded to GitHub or the signaling service.
 - **Incoming-file modal** shows the file details with explicit Accept/Decline controls and keeps the sender waiting for consent. Escape declines.
+- **Files received modal** offers Save file/Download ZIP and Discard files; discarding immediately returns both devices to the connected state, ready for a transfer in either direction.
 - **Arrival alert** plays a three-note chime and requests vibration on compatible devices. Browsers can block unsolicited audio, so the connected screen offers an Enable sound alerts control when needed.
 - **Explicit acceptance** before transferring file contents.
 - Multiple files, drag-and-drop, live progress, cancellation, and bidirectional sessions.
